@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta dengan Marker dan ID</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 90vh;
+            width: 100%;
+        }
+        #search {
+            margin: 10px;
+        }
+        .selected {
+            background-color: yellow; /* Menyoroti marker yang dipilih */
+        }
+    </style>
+    <script>
+    const apiUrl = 'https://<your-vercel-deployment-url>/api/markers'; // Ganti dengan URL Anda
+
+    var map = L.map('map').setView([-6.200000, 106.816666], 13);  // Lokasi Jakarta
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    var markers = [];
+    var selectedMarkers = [];
+    var lines = [];
+
+    // Memuat marker dari server
+    async function loadMarkersFromServer() {
+        const response = await fetch(apiUrl); // Menggunakan apiUrl yang baru
+        markers = await response.json();
+        markers.forEach(marker => {
+            addMarkerToMap(marker);
+        });
+    }
+
+    // Fungsi lainnya tetap sama
+    ...
+</script>
+    <script>
+    var map = L.map('map').setView([-6.200000, 106.816666], 13);  // Lokasi Jakarta
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    var markers = [];
+    var selectedMarkers = [];
+    var lines = [];
+
+    // Memuat marker dari server
+    async function loadMarkersFromServer() {
+        const response = await fetch('http://localhost:3000/markers');
+        markers = await response.json();
+        markers.forEach(marker => {
+            addMarkerToMap(marker);
+        });
+    }
+
+    function addMarkerToMap(marker) {
+        var newMarker = L.marker([marker.lat, marker.lng]).addTo(map);
+        newMarker.bindPopup(
+            `<b>Marker ID: ${marker.id}</b><br>
+             <button onclick="deleteMarker('${marker.id}')">Hapus Marker</button>
+             <button onclick="toggleSelectMarker('${marker.id}', this)">Pilih Marker</button>`
+        );
+    }
+
+    async function onMapClick(e) {
+        var userId = prompt("Masukkan ID untuk lokasi ini:");
+        if (userId) {
+            var newMarker = { id: userId, lat: e.latlng.lat, lng: e.latlng.lng };
+            await fetch('http://localhost:3000/markers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newMarker)
+            });
+            addMarkerToMap(newMarker);
+        }
+    }
+
+    async function deleteMarker(id) {
+        if (confirm(`Apakah kamu yakin ingin menghapus marker dengan ID ${id}?`)) {
+            await fetch(`http://localhost:3000/markers/${id}`, { method: 'DELETE' });
+            markers = markers.filter(marker => marker.id !== id);
+            loadMarkersFromServer(); // Muat ulang marker
+        }
+    }
+
+    // Panggil fungsi loadMarkersFromServer saat halaman dimuat
+    window.onload = loadMarkersFromServer;
+
+    map.on('click', onMapClick);
+</script>
+
+</head>
+<body>
+
+    <div id="search">
+        <input type="text" id="searchId" placeholder="Cari ID Marker">
+        <button onclick="searchMarker()">Cari ID</button>
+        <button onclick="connectMarkers()">Sambungkan Markers</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([-6.200000, 106.816666], 13);  // Lokasi Jakarta
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        var markers = [];
+        var selectedMarkers = [];
+        var lines = [];
+
+        // Fungsi untuk menambahkan marker
+        function onMapClick(e) {
+            var userId = prompt("Masukkan ID untuk lokasi ini:");
+
+            if (userId !== null && userId !== "") {
+                var marker = L.marker(e.latlng).addTo(map);
+                marker.bindPopup(
+                    `<b>Marker ID: ${userId}</b><br>
+                     <button onclick="deleteMarker('${userId}', ${e.latlng.lat}, ${e.latlng.lng})">Hapus Marker</button>
+                     <button onclick="toggleSelectMarker('${userId}', this)">Pilih Marker</button>`
+                ).openPopup();
+
+                var newMarker = {
+                    id: userId,
+                    lat: e.latlng.lat,
+                    lng: e.latlng.lng
+                };
+
+                markers.push(newMarker);
+                saveMarkersToLocalStorage(); // Simpan ke localStorage
+            } else {
+                alert("ID tidak valid, marker tidak ditambahkan.");
+            }
+        }
+
+        // Fungsi untuk menyimpan marker dan garis ke localStorage
+        function saveMarkersToLocalStorage() {
+            localStorage.setItem('markers', JSON.stringify(markers));
+            localStorage.setItem('lines', JSON.stringify(lines));
+        }
+
+        // Fungsi untuk memuat marker dan garis dari localStorage
+        function loadMarkersFromLocalStorage() {
+            const storedMarkers = localStorage.getItem('markers');
+            const storedLines = localStorage.getItem('lines');
+
+            if (storedMarkers) {
+                markers = JSON.parse(storedMarkers);
+                markers.forEach(marker => {
+                    var newMarker = L.marker([marker.lat, marker.lng]).addTo(map);
+                    newMarker.bindPopup(
+                        `<b>Marker ID: ${marker.id}</b><br>
+                         <button onclick="deleteMarker('${marker.id}', ${marker.lat}, ${marker.lng})">Hapus Marker</button>
+                         <button onclick="toggleSelectMarker('${marker.id}', this)">Pilih Marker</button>`
+                    );
+                });
+            }
+
+            if (storedLines) {
+                const linesData = JSON.parse(storedLines);
+                linesData.forEach(line => {
+                    L.polyline(line.latLngs, { color: 'blue' }).addTo(map);
+                });
+            }
+        }
+
+        // Fungsi untuk memilih atau membatalkan pilihan marker
+        function toggleSelectMarker(id, button) {
+            const marker = markers.find(m => m.id === id);
+            if (marker) {
+                if (selectedMarkers.includes(marker)) {
+                    selectedMarkers = selectedMarkers.filter(m => m !== marker);
+                    button.style.backgroundColor = ""; // Batalkan pemilihan
+                } else {
+                    selectedMarkers.push(marker);
+                    button.style.backgroundColor = "yellow"; // Pilih marker
+                }
+            }
+        }
+
+        // Fungsi untuk menghubungkan marker yang dipilih
+        function connectMarkers() {
+            if (selectedMarkers.length < 2) {
+                alert("Pilih setidaknya dua marker untuk disambungkan.");
+                return;
+            }
+
+            const latLngs = selectedMarkers.map(m => [m.lat, m.lng]);
+            const polyline = L.polyline(latLngs, { color: 'blue' }).addTo(map);
+            lines.push({ latLngs: latLngs }); // Simpan data garis
+            saveMarkersToLocalStorage(); // Update localStorage
+            selectedMarkers = []; // Kosongkan pemilihan setelah menggambar
+        }
+
+        // Fungsi untuk menghapus marker
+        function deleteMarker(id, lat, lng) {
+            if (confirm(`Apakah kamu yakin ingin menghapus marker dengan ID ${id}?`)) {
+                map.eachLayer(function (layer) {
+                    if (layer instanceof L.Marker && layer.getLatLng().lat === lat && layer.getLatLng().lng === lng) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                markers = markers.filter(marker => marker.id !== id);
+                saveMarkersToLocalStorage(); // Update localStorage
+            }
+        }
+
+        // Fungsi untuk mencari marker berdasarkan ID
+        function searchMarker() {
+            var searchId = document.getElementById("searchId").value;
+            var found = markers.find(item => item.id === searchId);
+
+            if (found) {
+                map.setView([found.lat, found.lng], 16);
+            } else {
+                alert("Marker dengan ID " + searchId + " tidak ditemukan.");
+            }
+        }
+
+        // Memuat marker dan garis dari localStorage saat halaman dimuat
+        window.onload = loadMarkersFromLocalStorage;
+
+        map.on('click', onMapClick);
+    </script>
+
+</body>
+</html>
